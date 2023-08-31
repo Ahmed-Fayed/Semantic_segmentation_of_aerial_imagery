@@ -1,38 +1,44 @@
 import os
 import matplotlib.pyplot as plt
 from config import ARTIFACTS_OUTPUT
+from dataset import labels_2d
 import cv2
 
-
+idx = 1
 # helper function for image visualization
-def display(**images):
+def display(img, label, img_title, label_title, save=True):
     """
     Plot images in one row
     """
-    # num_images = len(images)
-    plt.figure(figsize=(12, 12))
-    for idx, (name, image) in enumerate(images.items()):
-        plt.subplot(1, 2, idx + 1)
-        plt.xticks([]);
-        plt.yticks([])
-        # get title from the parameter names
-        plt.title(name.replace('_', ' ').title(), fontsize=15)
-        plt.imshow(image)
-        fig_path = os.path.join(ARTIFACTS_OUTPUT, "dataset_sample.jpg")
-        plt.savefig(fig_path, bbox_inches='tight')
+    plt.figure(figsize=(12, 6))
+    plt.xticks([]);
+    plt.yticks([])
 
-    print(f"figure saved to path: {fig_path}")
+    plt.subplot(1, 2, 1)
+    plt.imshow(img)
+    plt.title(img_title)
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(label)
+    plt.title(label_title)
+
+    if not os.path.exists(ARTIFACTS_OUTPUT):
+        os.mkdir(ARTIFACTS_OUTPUT)
+
+    global idx
+    fig_path = os.path.join(ARTIFACTS_OUTPUT, "vis_" + str(idx) + ".jpg")
+    plt.savefig(fig_path, bbox_inches='tight')
+    idx += 1
+
     plt.show()
 
 
 # Visualize example
-original_image = cv2.imread("output/dataset/imgs/0000.jpg")
-ground_truth_mask = cv2.imread("output/dataset/masks/0000.png")
+original_image = cv2.imread("output/dataset/imgs/0005.jpg")
+ground_truth_mask = cv2.imread("output/dataset/masks/0005.png")
 
-if not os.path.exists(ARTIFACTS_OUTPUT):
-    os.mkdir(ARTIFACTS_OUTPUT)
+display(original_image, ground_truth_mask, "Original Image", "Ground Truth Mask")
 
-display(original_image=original_image, ground_truth_mask=ground_truth_mask)
-
+display(original_image, labels_2d[5], "Original Image", "2D Label")
 
 

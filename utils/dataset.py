@@ -4,8 +4,9 @@ import os
 import cv2
 from PIL import Image
 from pathlib import Path
-from config import DATASET_PATH, PATCH_SIZE, BASE_OUTPUT
+from config import *
 from patchify import patchify
+from utils import rgb_to_2D_label
 
 
 def create_patches(img_path, rgb=True):
@@ -36,7 +37,7 @@ def write_patches(img_patches, patch_index, target_dir, patch_extention = ".jpg"
         # iterate over horizontal patch axis
         for k in range(img_patches.shape[1]):
             # patches are located like a grid. use (j, k) indices to extract single patched image
-            single_patch_img = img_patches[j, k]
+            single_patch_img = img_patches[j, k, :, :]
 
             # Drop extra dimension from patchify
             single_patch_img = np.squeeze(single_patch_img)
@@ -92,11 +93,36 @@ def create_dataset(dataset_dir, target_dir):
 
                 if mask_name.endswith(".png"):
                     mask_path = os.path.join(tile_masks_path, mask_name)
-                    mask_patches = create_patches(mask_path, rgb=False)
+                    mask_patches = create_patches(mask_path)
 
                     write_patches(mask_patches, masks_index, target_masks_path, ".png")
 
     print(f"Dataset saved to path: {target_dir_path}")
 
 
-create_dataset(dataset_dir=DATASET_PATH, target_dir=BASE_OUTPUT)
+# create_dataset(dataset_dir=DATASET_PATH, target_dir=BASE_OUTPUT)
+
+
+labels_2d = []
+
+
+def create_2d_labels(masks_path, target_output=""):
+    for mask_name in tqdm(os.listdir(masks_path)):
+        mask_img = cv2.imread(os.path.join(masks_path, mask_name))
+        label = rgb_to_2D_label(mask_img)
+        labels_2d.append(label)
+        # print(f"label_2d: {label_2d}, type: {type(label_2d)}")
+        # filepath = os.path.join(target_output, mask_name)
+        # os.makedirs(target_output, exist_ok=True)
+        # cv2.imwrite(filepath, label_2d)
+
+
+data_dir = "D:/Software/CV_Projects/Semantic_segmentation_of_aerial_imagery/utils/output/dataset"
+masks_path = os.path.join(data_dir, "masks")
+# target_masks_path = os.path.join(data_dir, "labels_2d")
+create_2d_labels(masks_path)
+
+labels_2d = np.array(labels_2d)
+labels_2d = np.expand_dims(labels_2d, axis=3)
+
+print("Unique labels in label dataset are: ", np.unique(labels_2d))

@@ -48,3 +48,24 @@ ARTIFACTS_OUTPUT = os.path.join(BASE_OUTPUT, "artifacts")
 MODEL_PATH = os.path.join(ARTIFACTS_OUTPUT, "unet_tgs_salt.pth")
 METRIC_PLOT_PATH = os.path.join(ARTIFACTS_OUTPUT, "plot.png")
 TEST_PATHS = os.path.join(ARTIFACTS_OUTPUT, "test_paths.txt")
+
+
+# these HEX are provided by kaggle dataset
+"""
+Building: #3C1098
+Land (unpaved area): #8429F6
+Road: #6EC1E4
+Vegetation: #FEDD3A
+Water: #E2A929
+Unlabeled: #9B9B9B
+
+"""
+
+Building = '3C1098'
+Land = '8429F6'
+Road = '6EC1E4'
+Vegetation = 'FEDD3A'
+Water = 'E2A929'
+Unlabeled = '9B9B9B'
+
+
