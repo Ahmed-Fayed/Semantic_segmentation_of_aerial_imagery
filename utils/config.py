@@ -24,20 +24,19 @@ NUM_LEVELS = 3
 
 # initialize learning rate, number of epochs to train for, and the
 # batch size
-INIT_LR = 0.001
-NUM_EPOCHS = 40
-# BATCH_SIZE = 224
+learning_rate = 0.001
+EPOCHS = 50
+BATCH_SIZE = 4
 
 # define the input image dimensions
-INPUT_IMAGE_WIDTH = 128
-INPUT_IMAGE_HEIGHT = 128
+image_size = (224, 224)
 PATCH_SIZE = 224
 
 # define threshold to filter weak predictions
 THRESHOLD = 0.5
 
 # define the path to the base output directory
-BASE_OUTPUT = "output"
+BASE_OUTPUT = "D:/Software/CV_Projects/Semantic_segmentation_of_aerial_imagery/Utils/output"
 
 # define the path to the artifacts output directory
 ARTIFACTS_OUTPUT = os.path.join(BASE_OUTPUT, "artifacts")
@@ -68,4 +67,9 @@ Vegetation = 'FEDD3A'
 Water = 'E2A929'
 Unlabeled = '9B9B9B'
 
+
+""" Dataset Configs"""
+train_ratio = 0.8
+SEED = 1234
+valid_ratio = 0.1
 

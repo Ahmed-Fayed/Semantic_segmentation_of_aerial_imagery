@@ -1,12 +1,14 @@
 import os
 import matplotlib.pyplot as plt
-from config import ARTIFACTS_OUTPUT
-from dataset import labels_2d
+from Utils.config import ARTIFACTS_OUTPUT
+# from dataset import labels_2d
 import cv2
 
 idx = 1
+
+
 # helper function for image visualization
-def display(img, label, img_title, label_title, save=True):
+def display(img, label, img_title, label_title, save_name="vis", save=True):
     """
     Plot images in one row
     """
@@ -25,20 +27,21 @@ def display(img, label, img_title, label_title, save=True):
     if not os.path.exists(ARTIFACTS_OUTPUT):
         os.mkdir(ARTIFACTS_OUTPUT)
 
-    global idx
-    fig_path = os.path.join(ARTIFACTS_OUTPUT, "vis_" + str(idx) + ".jpg")
-    plt.savefig(fig_path, bbox_inches='tight')
-    idx += 1
+    if save:
+        global idx
+        fig_path = os.path.join(ARTIFACTS_OUTPUT, save_name + ".jpg")
+        plt.savefig(fig_path, bbox_inches='tight')
+        idx += 1
 
     plt.show()
 
 
 # Visualize example
-original_image = cv2.imread("output/dataset/imgs/0005.jpg")
-ground_truth_mask = cv2.imread("output/dataset/masks/0005.png")
-
-display(original_image, ground_truth_mask, "Original Image", "Ground Truth Mask")
-
-display(original_image, labels_2d[5], "Original Image", "2D Label")
+# original_image = cv2.imread("output/dataset/imgs/0005.jpg")
+# ground_truth_mask = cv2.imread("output/dataset/masks/0005.png")
+#
+# display(original_image, ground_truth_mask, "Original Image", "Ground Truth Mask")
+#
+# display(original_image, labels_2d[5], "Original Image", "2D Label")
 
 

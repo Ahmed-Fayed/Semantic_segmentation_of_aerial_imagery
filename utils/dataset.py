@@ -1,12 +1,15 @@
 import numpy as np
 from tqdm import tqdm
-import os
 import cv2
 from PIL import Image
-from pathlib import Path
-from config import *
 from patchify import patchify
-from utils import rgb_to_2D_label
+
+from Utils.config import *
+from Utils.utils import rgb_to_2D_label
+
+from sklearn.model_selection import train_test_split
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
 
 
 def create_patches(img_path, rgb=True):
@@ -122,7 +125,127 @@ masks_path = os.path.join(data_dir, "masks")
 # target_masks_path = os.path.join(data_dir, "labels_2d")
 create_2d_labels(masks_path)
 
-labels_2d = np.array(labels_2d)
-labels_2d = np.expand_dims(labels_2d, axis=3)
+# labels_2d = np.array(labels_2d)
+# labels_2d = np.expand_dims(labels_2d, axis=3)
 
-print("Unique labels in label dataset are: ", np.unique(labels_2d))
+# print("Unique labels in label dataset are: ", np.unique(labels_2d))
+
+
+""" Create train and test dataset"""
+
+print("loading dataset..")
+dataset_imgs_dir = "D:/Software/CV_Projects/Semantic_segmentation_of_aerial_imagery/utils/output/dataset/imgs"
+dataset_images = []
+for img_name in os.listdir(dataset_imgs_dir):
+    img_path = os.path.join(dataset_imgs_dir, img_name)
+    dataset_images.append(img_path)
+
+train_data, test_data, train_labels, test_labels = train_test_split(dataset_images, labels_2d, test_size=0.1,
+                                                                    shuffle=True, random_state=SEED)
+
+train_data, valid_data, train_labels, valid_labels = train_test_split(train_data, train_labels, test_size=0.1,
+                                                                      shuffle=True, random_state=SEED)
+
+print(f"train_data: {train_data[5]}")
+print(f"train_labels: {train_labels[5]}")
+print(f"train_data: {valid_data[5]}")
+print(f"train_labels: {valid_labels[5]}")
+print(f"test_data: {test_data[5]}")
+print(f"test_labels: {test_labels[5]}")
+
+
+# Define a custom dataset class
+# class CustomImageDataset(Dataset):
+#     def __init__(self, image_paths, label_images=None, transform=None):
+#         self.image_paths = image_paths
+#         self.label_images = label_images
+#         self.transform = transform
+#
+#     def __len__(self):
+#         return len(self.image_paths)
+#
+#     def __getitem__(self, idx):
+#         img_path = self.image_paths[idx]
+#         image = Image.open(img_path).convert("RGB")
+#         # image = cv2.imread(img_path)
+#         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+#
+#         if self.transform:
+#             image = self.transform(image)
+#
+#         if self.label_images is not None:
+#             label_image = self.label_images[idx]
+#             # label_image = Image.fromarray(label_image, mode="L")  # Convert NumPy array to PIL Image
+#
+#             if self.transform:
+#                 label_image = self.transform(label_image)
+#
+#             return image, label_image
+#         else:
+#             return image
+
+
+class CustomSegmentationDataset(Dataset):
+    def __init__(self, image_paths, mask_list, transform=None):
+        self.image_paths= image_paths
+        self.mask_list = mask_list
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.mask_list)
+
+    def __getitem__(self, idx):
+        # Load the image
+        img_filename = self.image_paths[idx]
+        image = Image.open(img_filename).convert("RGB")
+
+        # Load the mask from the list of NumPy arrays
+        mask = self.mask_list[idx]
+
+        if self.transform:
+            image = self.transform(image)
+            mask = torch.from_numpy(mask).long()  # Convert the mask to a PyTorch tensor
+
+        return image, mask
+
+
+train_transforms = transforms.Compose([
+    transforms.Resize(image_size),
+    transforms.RandomRotation(5),
+    transforms.RandomHorizontalFlip(0.5),
+    transforms.RandomCrop(image_size, padding=10),
+    transforms.ToTensor(),
+    # transforms.Normalize(mean=target_means, std=target_stds),
+    transforms.RandomErasing(p=0.2)
+
+])
+
+test_transforms = transforms.Compose([
+    transforms.Resize(image_size),
+    transforms.CenterCrop(image_size),
+    transforms.ToTensor(),
+    # transforms.Normalize(mean=target_means, std=target_stds)
+])
+
+# Create a custom dataset instance
+train_dataset = CustomSegmentationDataset(train_data, train_labels, train_transforms)
+valid_dataset = CustomSegmentationDataset(valid_data, valid_labels, train_transforms)
+test_dataset = CustomSegmentationDataset(test_data, test_labels, test_transforms)
+
+# Create a data loader
+train_iterator = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+val_iterator = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=True)
+test_iterator = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+
+# Iterate through the data loader
+print(type(train_iterator))
+print(train_iterator)
+images, labels = next(iter(train_iterator))
+print("Batch Size:", images.size(0))
+print(f"image: {images[0]}, Image Shape: {images[0].size()}")
+print(f"label: {labels[0]}, Label Shape: {labels[0].size()}")
+
+print(f'num of training examples: {len(train_data)}')
+print(f'num of validation examples: {len(valid_data)}')
+print(f'num of testing examples: {len(test_data)}')
