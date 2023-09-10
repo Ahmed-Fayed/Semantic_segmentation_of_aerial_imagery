@@ -12,46 +12,9 @@ from Utils.utils import epoch_time
 from Utils.models import UNet
 from Utils.dataset import train_iterator, val_iterator, test_iterator
 
-
-print(f'torch version: {torch.__version__}')
-gc.collect()
-torch.cuda.empty_cache()
-
-random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
-torch.cuda.manual_seed(SEED)
-torch.backends.cudnn.deterministic = True
-
-
-# Model Initialization
-model = UNet(num_classes=NUM_CLASSES)
-print(f"UNet Summery: {model}")
-
-# loss function
-criterion = nn.CrossEntropyLoss()
-
-# Optimizer
-optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"device: {device}")
-
-model = model.to(device)
-criterion = criterion.to(device)
-
-
-# def calculate_topk_accuracy(y_pred, y, k = 3):
-#     with torch.no_grad():
-#         batch_size = y.shape[0]
-#         _, top_pred = y_pred.topk(k, 1)
-#         top_pred = top_pred.t()
-#         correct = top_pred.eq(y.view(1, -1).expand_as(top_pred))
-#         correct_1 = correct[:1].reshape(-1).float().sum(0, keepdim=True)
-#         correct_k = correct[:k].reshape(-1).float().sum(0, keepdim=True)
-#         acc_1 = correct_1 / batch_size
-#         acc_k = correct_k / batch_size
-#     return acc_1, acc_k
+import mlflow
+from mlflow.tracking import MlflowClient
+from mlflow.exceptions import MlflowException
 
 
 def calculate_pixel_accuracy(preds, labels):
@@ -138,24 +101,87 @@ def evaluate(val_iterator, model, criterion, device):
 
 if __name__ == "__main__":
 
-    best_valid_loss = float('inf')
+    print(f'torch version: {torch.__version__}')
+    gc.collect()
+    torch.cuda.empty_cache()
 
-    for epoch in tqdm(range(EPOCHS)):
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+    torch.cuda.manual_seed(SEED)
+    torch.backends.cudnn.deterministic = True
 
-        start_time = time.monotonic()
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    print(f"tracking URI: '{mlflow.get_tracking_uri()}'")
+    mlflow.set_experiment("Aerial-Imaginary-Segmentation-1")
+    print(f"experiments: '{mlflow.search_experiments()}'")
 
-        train_loss, train_acc = train(train_iterator, model, criterion, optimizer, device)
-        valid_loss, valid_acc = evaluate(val_iterator, model, criterion, device)
+    print("training started!")
+    with mlflow.start_run():
+        # Model Initialization
+        model = UNet(num_classes=NUM_CLASSES)
+        print(f"UNet Summery: {model}")
 
-        if valid_loss < best_valid_loss:
-            best_valid_loss = valid_loss
-            torch.save(model.state_dict(), 'UNet.pt')
+        # loss function
+        criterion = nn.CrossEntropyLoss()
 
-        end_time = time.monotonic()
+        # Optimizer
+        optimizer = torch.optim.Adam(params=model.parameters(), lr=learning_rate)
 
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"device: {device}")
 
-        print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc @1: {train_acc * 100:6.2f}%')
-        print(f'\tValid Loss: {valid_loss:.3f} | Valid Acc @1: {valid_acc * 100:6.2f}%')
+        model = model.to(device)
+        criterion = criterion.to(device)
 
+        best_valid_loss = float('inf')
+
+        params = {"epochs": EPOCHS, "learning_rate": learning_rate, "criterion": criterion, "optimizer": optimizer,
+                  "random_state": SEED}
+        mlflow.log_params(params)
+
+        for epoch in tqdm(range(EPOCHS)):
+
+            start_time = time.monotonic()
+
+            train_loss, train_acc = train(train_iterator, model, criterion, optimizer, device)
+            valid_loss, valid_acc = evaluate(val_iterator, model, criterion, device)
+
+            if valid_loss < best_valid_loss:
+                best_valid_loss = valid_loss
+                torch.save(model.state_dict(), 'UNet.pt')
+
+            end_time = time.monotonic()
+
+            epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+
+            print(f'Epoch: {epoch + 1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
+            print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc * 100:6.2f}%')
+            print(f'\tValid Loss: {valid_loss:.3f} | Valid Acc: {valid_acc * 100:6.2f}%')
+
+        mlflow.log_metric("Train Loss", round(train_loss, 3))
+        mlflow.log_metric("Train Acc", round(train_acc.item() * 100, 2))
+        mlflow.log_metric("Valid Loss", round(valid_loss, 3))
+        mlflow.log_metric("Valid Acc", round(valid_acc.item() * 100, 2))
+        mlflow.pytorch.log_model(model, artifact_path="models")
+        print(f"default artifacts URI: '{mlflow.get_artifact_uri()}'")
+
+    print(f"experiments: '{mlflow.search_experiments()}'")
+
+    client = MlflowClient("http://127.0.0.1:5000")
+
+    try:
+        print(f" Registered Models: {client.search_registered_models()}")
+    except MlflowException:
+        print("It's not possible to access the model registry :(")
+
+    run_id = client.search_runs(experiment_ids='1')[0].info.run_id
+    mlflow.register_model(
+        model_uri=f"runs:/{run_id}/models",
+        name='UNet-Segmentation'
+    )
+
+    try:
+        print(f" Registered Models: {client.search_registered_models()}")
+    except MlflowException:
+        print("It's not possible to access the model registry :(")
